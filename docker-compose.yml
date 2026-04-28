@@ -17,6 +17,27 @@ services:
     networks:
       - platform
 
+  atreides:
+    build: ../atreides
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      HOST: 0.0.0.0
+      DB_HOST: atreides-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: atreides
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      atreides-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - platform
+
   odyssey:
     build: ../odyssey
     ports:
@@ -35,6 +56,24 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    networks:
+      - platform
+
+  atreides-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: atreides
+    ports:
+      - "5435:5432"
+    volumes:
+      - atreides_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - platform
 
@@ -158,6 +197,7 @@ networks:
     driver: bridge
 
 volumes:
+  atreides_db_data:
   persona_db_data:
   odyssey_db_data:
   kafka_data:
