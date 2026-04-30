@@ -71,15 +71,31 @@ services:
     environment:
       PORT: 3004
       HOST: 0.0.0.0
+      JWT_SECRET: changeme
+      JANUS_URL: http://janus:3003
       ATREIDES_URL: http://atreides:3002
       PERSONA_URL: http://persona:3000
       ODYSSEY_URL: http://odyssey:3001
     depends_on:
+      janus:
+        condition: service_started
       atreides:
         condition: service_started
       persona:
         condition: service_started
       odyssey:
+        condition: service_started
+    networks:
+      - platform
+
+  arrakis:
+    build:
+      context: ..
+      dockerfile: arrakis/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      imperium:
         condition: service_started
     networks:
       - platform

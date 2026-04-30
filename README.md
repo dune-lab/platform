@@ -6,6 +6,7 @@ Architecture overview and global infrastructure for the adaptive learning platfo
 
 | Service | Repo | Port | Description |
 |---------|------|------|-------------|
+| **arrakis** | [dune-lab/arrakis](https://github.com/dune-lab/arrakis) | 5173 | Frontend SPA — React + Vite |
 | **imperium** | [dune-lab/imperium](https://github.com/dune-lab/imperium) | 3004 | BFF — single entry point for the client |
 | **janus** | [dune-lab/janus](https://github.com/dune-lab/janus) | 3003 | Auth — issues JWT tokens |
 | **atreides** | [dune-lab/atreides](https://github.com/dune-lab/atreides) | 3002 | User identity & authentication |
@@ -17,22 +18,29 @@ Architecture overview and global infrastructure for the adaptive learning platfo
 | Repo | Description |
 |------|-------------|
 | [dune-lab/student-journey](https://github.com/dune-lab/student-journey) | Original monolith — Diplomat Architecture reference |
-| [orezende/enxoval](https://github.com/orezende/enxoval) | Shared libraries (`@enxoval/*`) |
+| [dune-lab/enxoval](https://github.com/dune-lab/enxoval) | Shared libraries (`@enxoval/*`) |
 
 ## Communication
 
 ```
-Client
+arrakis (browser)
   │
-  ├─ POST /auth/login  ──────────────────────► janus
-  │                                              │
-  │                                              └─ POST /users/authenticate ──► atreides
-  │
-  └─ GET  /me  ─────────────────────────────► imperium
+  └─ ALL requests ───────────────────────────► imperium
                                                  │
-                                                 ├─ GET /users/:id ────────────► atreides
-                                                 ├─ GET /students/by-user/:id ─► persona
-                                                 └─ GET /journeys/by-student/:id ► odyssey
+                                                 ├─ POST /auth/login ──────────► janus
+                                                 │                                 │
+                                                 │                                 └─ POST /users/authenticate ──► atreides
+                                                 │
+                                                 ├─ POST /users/register ──────► atreides
+                                                 │
+                                                 ├─ GET  /me ──────────────────► atreides + persona + odyssey
+                                                 │
+                                                 ├─ POST /students ────────────► persona
+                                                 ├─ GET  /students ────────────► persona
+                                                 │
+                                                 ├─ POST /journeys ────────────► odyssey
+                                                 ├─ GET  /journeys ────────────► odyssey
+                                                 └─ POST /journeys/republish ──► odyssey
 
 atreides ──── userCreated, mailConfirmed ────► (Kafka — future consumers)
 
@@ -49,11 +57,12 @@ odyssey internal saga (Kafka):
 ## Auth Flow
 
 ```
-1. Client  POST /auth/login { email, password }  → janus
-2. janus validates credentials against atreides  → returns JWT { userId, role }
-3. Client sends  Authorization: Bearer <token>  on every request to imperium
-4. imperium decodes the token (no re-validation) → proxies Bearer to downstream
-5. Each downstream service validates the token independently via @enxoval/auth
+1. arrakis  POST /auth/login { email, password }  → imperium → janus
+2. janus validates credentials against atreides   → returns JWT { userId, role }
+3. imperium returns the token to arrakis
+4. arrakis sends  Authorization: Bearer <token>  on every subsequent request to imperium
+5. imperium validates the token via @enxoval/auth, then proxies Bearer to downstream
+6. Each downstream service validates the token independently via @enxoval/auth
 ```
 
 ## Run Everything
@@ -64,6 +73,7 @@ docker-compose up
 
 | Container | Port |
 |-----------|------|
+| arrakis | 5173 |
 | imperium | 3004 |
 | janus | 3003 |
 | atreides | 3002 |
@@ -79,25 +89,26 @@ docker-compose up
 ## Architecture
 
 ```
-                    ┌──────────────┐
-                    │   imperium   │  ← single client entry point
-                    │  port 3004   │
-                    └──┬───┬───┬───┘
-                       │   │   │
-           ┌───────────┘   │   └────────────┐
-           ▼               ▼                ▼
-    ┌──────────┐   ┌──────────────┐   ┌──────────────┐
-    │ atreides │   │   persona    │   │   odyssey    │
-    │ port 3002│   │  port 3000   │   │  port 3001   │
-    │  users   │   │  students    │   │  journeys    │
-    │ Postgres │   │  Postgres    │   │  Postgres    │
-    │  Kafka ──┼──►│  (no Kafka)  │   │  + Kafka saga│
-    └────▲─────┘   └──────────────┘   └──────────────┘
-         │
-  ┌──────────┐
-  │  janus   │  ← auth only, no DB
-  │ port 3003│
-  └──────────┘
+              ┌──────────────┐
+              │   arrakis    │  ← SPA (browser)
+              │  port 5173   │
+              └──────┬───────┘
+                     │ all requests
+                     ▼
+              ┌──────────────┐
+              │   imperium   │  ← single backend entry point
+              │  port 3004   │
+              └──┬──┬──┬──┬──┘
+                 │  │  │  │
+       ┌─────────┘  │  │  └──────────┐
+       ▼            ▼  ▼             ▼
+┌──────────┐  ┌──────┐ ┌──────────┐ ┌──────────────┐
+│ atreides │  │janus │ │ persona  │ │   odyssey    │
+│ port 3002│  │ 3003 │ │ port 3000│ │  port 3001   │
+│  users   │  │ auth │ │ students │ │  journeys    │
+│ Postgres │  │no DB │ │ Postgres │ │  Postgres    │
+│  Kafka ──┼─►│      │ │          │ │  + Kafka saga│
+└──────────┘  └──────┘ └──────────┘ └──────────────┘
 ```
 
-Each service runs independently with its own database. No shared state, no direct service-to-service coupling except `janus → atreides` for credential validation.
+Each service runs independently with its own database. No shared state, no direct service-to-service coupling. The client never talks to services directly — all traffic goes through imperium.
