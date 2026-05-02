@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dune-lab · platform</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #e2e2e2;
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+
+    header {
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    header p {
+      font-size: 12px;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    section {
+      margin-bottom: 36px;
+    }
+
+    section h2 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #252525;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: #333;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e2e2e2;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .badge-up   { background: #0d2b1a; color: #3ddc84; }
+    .badge-down { background: #2b0d0d; color: #dc3d3d; }
+    .badge-idle { background: #1e1e1e; color: #555; }
+
+    .card-meta {
+      font-size: 11px;
+      color: #444;
+    }
+
+    .card-link a {
+      font-size: 12px;
+      color: #4a9eff;
+      text-decoration: none;
+    }
+
+    .card-link a:hover {
+      text-decoration: underline;
+    }
+
+    .infra-cards .card-top {
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    footer {
+      margin-top: 48px;
+      font-size: 11px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>dune-lab · platform</h1>
+  <p id="last-check">checking...</p>
+</header>
+
+<section>
+  <h2>Services</h2>
+  <div class="cards" id="services-grid"></div>
+</section>
+
+<section>
+  <h2>Infrastructure</h2>
+  <div class="cards infra-cards" id="infra-grid"></div>
+</section>
+
+<footer>auto-refresh every 5s · timeout 2s</footer>
+
+<script>
+  const SERVICES = [
+    { name: 'arrakis',  health: 'http://localhost:5173/health', url: 'http://localhost:5173', port: 5173 },
+    { name: 'imperium', health: 'http://localhost:3004/health', url: 'http://localhost:3004', port: 3004 },
+    { name: 'janus',    health: 'http://localhost:3003/health', url: 'http://localhost:3003', port: 3003 },
+    { name: 'atreides', health: 'http://localhost:3002/health', url: 'http://localhost:3002', port: 3002 },
+    { name: 'persona',  health: 'http://localhost:13000/health', url: 'http://localhost:13000', port: 13000 },
+    { name: 'odyssey',  health: 'http://localhost:3001/health', url: 'http://localhost:3001', port: 3001 },
+  ];
+
+  const INFRA = [
+    { name: 'kafka-ui', url: 'http://localhost:8081' },
+    { name: 'grafana',  url: 'http://localhost:4001' },
+  ];
+
+  function renderServices() {
+    const grid = document.getElementById('services-grid');
+    grid.innerHTML = SERVICES.map(s => `
+      <div class="card" id="card-${s.name}">
+        <div class="card-top">
+          <span class="card-name">${s.name}</span>
+          <span class="badge badge-idle" id="badge-${s.name}">—</span>
+        </div>
+        <div class="card-meta" id="meta-${s.name}">port ${s.port}</div>
+        <div class="card-link"><a href="${s.health ?? s.url}" target="_blank">${s.health ?? s.url}</a></div>
+      </div>
+    `).join('');
+  }
+
+  function renderInfra() {
+    const grid = document.getElementById('infra-grid');
+    grid.innerHTML = INFRA.map(i => `
+      <div class="card">
+        <div class="card-top">
+          <span class="card-name">${i.name}</span>
+        </div>
+        <div class="card-link"><a href="${i.url}" target="_blank">${i.url}</a></div>
+      </div>
+    `).join('');
+  }
+
+  async function checkService(s) {
+    if (!s.health) return;
+
+    const badge = document.getElementById(`badge-${s.name}`);
+    const meta  = document.getElementById(`meta-${s.name}`);
+    const t0 = Date.now();
+
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 2000);
+      const res = await fetch(s.health, { signal: ctrl.signal });
+      clearTimeout(timeout);
+      const ms = Date.now() - t0;
+
+      if (res.ok) {
+        badge.className = 'badge badge-up';
+        badge.textContent = 'UP';
+        meta.textContent = `${ms}ms · port ${s.port}`;
+      } else {
+        badge.className = 'badge badge-down';
+        badge.textContent = 'DOWN';
+        meta.textContent = `HTTP ${res.status} · port ${s.port}`;
+      }
+    } catch {
+      badge.className = 'badge badge-down';
+      badge.textContent = 'DOWN';
+      meta.textContent = `unreachable · port ${s.port}`;
+    }
+  }
+
+  function checkAll() {
+    SERVICES.forEach(checkService);
+    document.getElementById('last-check').textContent =
+      `last check: ${new Date().toLocaleTimeString()}`;
+  }
+
+  renderServices();
+  renderInfra();
+  checkAll();
+  setInterval(checkAll, 5000);
+</script>
+
+</body>
+</html>

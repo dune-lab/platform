@@ -1,0 +1,98 @@
+{
+  "title": "DLQ — Dead Letter Queue",
+  "uid": "dlq-monitor",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "10s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "Consumer Crashes (kafkajs)",
+      "description": "Consumer perdeu conexão com Kafka — groupId indica qual etapa parou",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | message=~\"\\\\[Consumer\\\\] Crash.*\" | line_format \"[{{.container}}] groupId={{.groupId}} | {{.message}}\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "logs",
+      "title": "Connection Errors (Kafka down)",
+      "description": "Erros de conexão com o broker — o que acontece quando o Kafka está fora",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | message=~\".*Connection error.*|.*Connection timeout.*|.*Failed to connect.*\" | line_format \"[{{.container}}] {{.message}}\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Consumer Restarting",
+      "description": "Consumers reiniciando após crash — indica instabilidade",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | message=~\"\\\\[Consumer\\\\] Restarting.*\" | line_format \"[{{.container}}] groupId={{.groupId}} | retryCount={{.retryCount}} | retryTime={{.retryTime}}ms\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "Mensagens enviadas para DLQ (handler falhou 3x)",
+      "description": "Falhas na lógica do handler — tópico de origem e payload disponíveis no detalhe",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | msg=\"consumer: message failed after retries, sending to DLQ\" | line_format \"[{{.container}}] topic={{.topic}} | name={{.name}} | eventId={{.eventId}} | erro={{.err}}\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

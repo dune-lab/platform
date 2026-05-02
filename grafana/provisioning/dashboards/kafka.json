@@ -1,0 +1,73 @@
+{
+  "title": "Kafka Messages",
+  "uid": "kafka-messages",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "All Messages (producer + consumer)",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | msg=~\"producer: message published|consumer: message received\" | line_format \"[{{.container}}] {{.msg}} | topic={{.topic}} | name={{.name}} | eventId={{.eventId}}\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "logs",
+      "title": "journeyInitiated",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | name=`journeyInitiated` | line_format \"[{{.msg}}] topic={{.topic}} | eventId={{.eventId}} | cid={{.cid}}\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Errors & DLQ",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+          "expr": "{container=~\"platform-(odyssey|atreides)-1\"} | json | msg=~\"consumer: message failed.*|consumer: failed to start\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

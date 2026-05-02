@@ -4,8 +4,9 @@ services:
       context: ..
       dockerfile: persona/Dockerfile
     ports:
-      - "3000:3000"
+      - "13000:3000"
     environment:
+      NODE_ENV: production
       PORT: 3000
       HOST: 0.0.0.0
       DB_HOST: persona-db
@@ -27,6 +28,7 @@ services:
     ports:
       - "3002:3002"
     environment:
+      NODE_ENV: production
       PORT: 3002
       HOST: 0.0.0.0
       DB_HOST: atreides-db
@@ -51,6 +53,7 @@ services:
     ports:
       - "3003:3003"
     environment:
+      NODE_ENV: production
       PORT: 3003
       HOST: 0.0.0.0
       JWT_SECRET: changeme
@@ -69,6 +72,7 @@ services:
     ports:
       - "3004:3004"
     environment:
+      NODE_ENV: production
       PORT: 3004
       HOST: 0.0.0.0
       JWT_SECRET: changeme
@@ -107,6 +111,7 @@ services:
     ports:
       - "3001:3001"
     environment:
+      NODE_ENV: production
       PORT: 3001
       HOST: 0.0.0.0
       DB_HOST: odyssey-db
@@ -195,6 +200,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    mem_limit: 700m
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -209,10 +216,12 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+    mem_limit: 400m
     depends_on:
       kafka:
         condition: service_healthy
@@ -222,12 +231,19 @@ services:
   loki:
     image: grafana/loki:2.9.10
     user: "0"
-    ports:
-      - "3100:3100"
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ./loki/config.yml:/etc/loki/config.yml
       - loki_data:/tmp/loki
+    networks:
+      - platform
+
+  dashboard:
+    image: nginx:alpine
+    ports:
+      - "9000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
     networks:
       - platform
 
@@ -245,7 +261,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "4000:3000"
+      - "4001:3000"
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
