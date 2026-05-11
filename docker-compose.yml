@@ -309,3 +309,19 @@ volumes:
   kafka_data:
   loki_data:
   grafana_data:
+  servico-teste-zero-02:
+    build: ../servico-teste-zero-02
+    ports:
+      - "3006:3006"
+    env_file:
+      - ../servico-teste-zero-02/.env
+    depends_on:
+      - servico-teste-zero-02-db
+
+  servico-teste-zero-02-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: servico-teste-zero-02
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: e8fd8b3a6092b67844ad7859be85ad7c
+
