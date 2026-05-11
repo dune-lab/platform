@@ -309,3 +309,19 @@ volumes:
   kafka_data:
   loki_data:
   grafana_data:
+  teste-servico-completo:
+    build: ../teste-servico-completo
+    ports:
+      - "3006:3006"
+    env_file:
+      - ../teste-servico-completo/.env
+    depends_on:
+      - teste-servico-completo-db
+
+  teste-servico-completo-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: teste-servico-completo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 5c1046a6e42f5592f5b17d5bf26f357c
+
