@@ -354,3 +354,19 @@ volumes:
   kafka_data:
   loki_data:
   grafana_data:
+  apollo-11:
+    build: ../apollo-11
+    ports:
+      - "3007:3007"
+    env_file:
+      - ../apollo-11/.env
+    depends_on:
+      - apollo-11-db
+
+  apollo-11-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: apollo-11
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 19f85c375d4ea0563cbf27f3f12ce1e7
+
